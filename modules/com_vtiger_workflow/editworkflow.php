@@ -50,6 +50,9 @@ function vtWorkflowEdit($adb, $request, $requestUrl, $current_language, $app_str
 			$smarty->assign('MaxAllowedScheduledWorkflows', $wfs->getMaxAllowedScheduledWorkflows());
 		}
 	}
+	if($workflow->executionCondition!=6){
+			$smarty->assign('MaxAllowedScheduledWorkflows', $wfs->getMaxAllowedScheduledWorkflows());
+	}
 	$smarty->assign('ScheduledWorkflowsCount', $wfs->getScheduledWorkflowsCount());
 	if (empty($workflow->schtime)) {
 		$smarty->assign('schdtime_12h', date('h:ia'));
