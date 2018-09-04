@@ -275,6 +275,14 @@ if ($sql_error) {
 } // try query
 $smarty->assign('IS_ADMIN', is_admin($current_user));
 
+/*TECNOKRAFTS START -- logic to get the custom list view search data and assign to smarty variable*/
+if (($currentModule == 'Accounts' || $currentModule == 'Leads') && is_array($listview_header_search)) {
+	require_once 'include/utils/ListViewUtils.php';
+	$tks_list = tks_getListSearch($listview_header_search, $currentModule);
+	$smarty->assign('TKS_LIST_SEARCH', $tks_list);
+}
+/*TECNOKRAFTS END -- logic to get the custom list view search data and assign to smarty variable*/
+
 // Search Panel Status
 $DEFAULT_SEARCH_PANEL_STATUS = GlobalVariable::getVariable('Application_ListView_SearchPanel_Open', 1);
 $smarty->assign('DEFAULT_SEARCH_PANEL_STATUS', ($DEFAULT_SEARCH_PANEL_STATUS ? 'display: block' : 'display: none'));

@@ -107,6 +107,11 @@
 					<td class="lvtCol">{$header}</td>
 				{/foreach}
 			</tr>
+			<!--TECHNOKRAFTS START-- Logic inculding the custom listview search block tpl-->
+			{if $MODULE eq "Accounts" || $MODULE eq "Leads"}
+				{include file="tks_searchblock.tpl" SOURCE='customview' COLUMNS_BLOCK=$FIELDNAMES}
+			{/if}
+			<!--TECHNOKRAFTS END-- Logic inculding the custom listview search block tpl-->
 			<tr>
 				<td id="linkForSelectAll" class="linkForSelectAll" style="display:none;" colspan=15>
 					<span id="selectAllRec" class="selectall" style="display:inline;" onClick="toggleSelectAll_Records('{$MODULE}',true,'selected_id')">{$APP.LBL_SELECT_ALL} <span id="count"> </span> {$APP.LBL_RECORDS_IN} {$MODULE|@getTranslatedString:$MODULE}</span>

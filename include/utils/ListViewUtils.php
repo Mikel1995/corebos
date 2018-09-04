@@ -4117,4 +4117,130 @@ function counterValue() {
 	$counter = $counter + 1;
 	return $counter;
 }
+
+/*TECNOKRAFTS START -- functions to get the search list block data*/
+/*start-- function for getting the picklist data for the select type field and owner type field */
+
+function tks_GetPickistData($fieldname, $fieldtype) {
+	require_once 'modules/PickList/PickListUtils.php';
+
+	global $adb, $current_user;
+	$roleid = $current_user->roleid;
+	$pick_array = array();
+	if ($fieldtype == 'select') {
+		$pick_array = getAssignedPicklistValues($fieldname, $roleid, $adb);
+	} elseif ($fieldtype == 'owner') {
+		$users = array();
+		$group = array();
+		$query = 'SELECT first_name, last_name FROM vtiger_users WHERE deleted = 0 ';
+		$tks_res = $adb->query($query);
+		$num_rows = $adb->num_rows($tks_res);
+		for ($i = 0; $i < $num_rows; $i++) {
+			$fname = $adb->query_result($tks_res, $i, 'first_name');
+			$lname = $adb->query_result($tks_res, $i, 'last_name');
+			array_push($users, trim($fname . ' ' . $lname));
+		}
+
+		$query = 'SELECT groupname FROM vtiger_groups ';
+		$tks_res = $adb->query($query);
+		$num_rows = $adb->num_rows($tks_res);
+		for ($i = 0; $i < $num_rows; $i++) {
+			array_push($group, $adb->query_result($tks_res, $i, 'groupname'));
+		}
+
+		$pick_array = array(
+			'users' => $users,
+			'group' => $group
+		);
+	}
+
+	return $pick_array;
+}
+
+/*end-- function for getting the picklist data for the select type field and owner type field */
+/*start-- function to build the searchlist block data */
+
+function tks_getListSearch($list, $mod) {
+	if (!is_array($list) || $mod == '') {
+		return '';
+	}
+
+	global $adb;
+	$l_array = array();
+	$user_data = array();
+	$ftype = 'text';
+	$ui = 1;
+	$keys = array_keys($list);
+	sort($keys);
+	$sql = 'SELECT vtiger_field.fieldname,vtiger_field.uitype FROM vtiger_field
+					 INNER JOIN vtiger_tab ON vtiger_tab.tabid = vtiger_field.tabid
+					 WHERE vtiger_tab.name =  \'' . $mod . '\'
+					 AND vtiger_field.fieldname IN (' . generateQuestionMarks($keys) . ') ORDER BY vtiger_field.fieldname ASC ';
+	$tks_res = $adb->pquery($sql, $keys);
+	$num_rows = $adb->num_rows($tks_res);
+	for ($i = 0; $i < $num_rows; $i++) {
+		$ui = $adb->query_result($tks_res, $i, 'uitype');
+		$f_name = $adb->query_result($tks_res, $i, 'fieldname');
+		switch ($ui) {
+			case 56:
+			case 156:
+				$ftype = 'checkbox';
+				break;
+
+			case 52:
+			case 53:
+				$ftype = 'owner';
+				$user_data = tks_GetPickistData($f_name, $ftype);
+				break;
+
+			case 15:
+			case 16:
+			case 33:
+			case 27:
+				$ftype = 'select';
+				$user_data = tks_GetPickistData($f_name, $ftype);
+				break;
+
+			case 5:
+			case 6:
+			case 23:
+				$ftype = 'date';
+				break;
+
+			case 70:
+				$ftype = 'datetime';
+				break;
+
+			case 7:
+			case 9:
+				$ftype = 'number';
+				break;
+
+			case 71:
+			case 72:
+				$ftype = 'currency';
+				break;
+
+			default:
+				$ftype = 'text';
+		}
+
+		$list[$f_name] = array(
+			'fieldname' => $f_name,
+			'fieldtype' => $ftype,
+			'uitype' => $ui,
+			'value' => $list[$f_name],
+			'pickdata' => $user_data
+		);
+		$user_data = array();
+	}
+
+	foreach ($list as $key => $value) {
+		array_push($l_array, $list[$key]);
+	}
+
+	return $l_array;
+}
+/*end-- function to build the searchlist block data */
+/*TECNOKRAFTS END -- functions to get the search list block data*/
 ?>

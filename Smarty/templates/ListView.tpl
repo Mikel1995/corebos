@@ -8,6 +8,28 @@
  * All Rights Reserved.
  ********************************************************************************/
 -->*}
+{*<!-- module header -->*}
+<!--TECNOKRAFTS START -- Inculde Libraries CSS & JQuery for the multiselect dropdown -->
+<link rel="stylesheet" type="text/css" href="include/jquery.multiselect.css" />
+<link rel="stylesheet" type="text/css" href="include/tks_style.css" />
+<link rel="stylesheet" type="text/css" href="http://ajax.googleapis.com/ajax/libs/jqueryui/1/themes/redmond/jquery-ui.css" />
+<script src="include/jquery/jquery.js"></script>
+<script type="text/javascript">
+var jq = $.noConflict();
+</script>
+<script type="text/javascript" src="include/jquery/jquery-ui.min.js"></script>
+<script type="text/javascript" src="include/jquery/jquery.multiselect.js"></script>
+<script language="javascript" type="text/javascript">
+/* start-- function to uncheck all the selected items from the select field*/
+function clearSelect ( id )
+{literal}
+{
+   jq("#"+id).multiselect("uncheckAll");
+}
+/* end-- function to uncheck all the selected items from the select field*/
+{/literal}
+</script>
+<!--TECNOKRAFTS END -- Inculde Libraries CSS & JQuery for the multiselect dropdown -->
 <script type="text/javascript" src="include/js/ListView.js"></script>
 <script type="text/javascript" src="include/js/search.js"></script>
 <script type="text/javascript" src="include/js/Merge.js"></script>
@@ -183,3 +205,69 @@
 {if (vt_hasRTE())}
 <script type="text/javascript" src="include/ckeditor/ckeditor.js"></script>
 {/if}
+<script>
+{literal}
+
+function ajaxChangeStatus(statusname)
+{
+	$("status").style.display="inline";
+	var viewid = document.getElementById('viewname').options[document.getElementById('viewname').options.selectedIndex].value;
+	var idstring = document.getElementById('idlist').value;
+	var searchurl= document.getElementById('search_url').value;
+	var tplstart='&';
+	if(gstart!='')
+	{
+		tplstart=tplstart+gstart;
+	}
+	if(statusname == 'status')
+	{
+		fninvsh('changestatus');
+		var url='&leadval='+document.getElementById('lead_status').options[document.getElementById('lead_status').options.selectedIndex].value;
+		var urlstring ="module=Users&action=updateLeadDBStatus&return_module=Leads"+tplstart+url+"&viewname="+viewid+"&idlist="+idstring+searchurl;
+	}
+	else if(statusname == 'owner')
+	{
+		if($("user_checkbox").checked)
+		{
+		    fninvsh('changeowner');
+		    var url='&owner_id='+document.getElementById('lead_owner').options[document.getElementById('lead_owner').options.selectedIndex].value;
+		    {/literal}
+		        var urlstring ="module=Users&action=updateLeadDBStatus&return_module={$MODULE}"+tplstart+url+"&viewname="+viewid+"&idlist="+idstring+searchurl;
+		    {literal}
+		} else {
+			fninvsh('changeowner');
+			var url='&owner_id='+document.getElementById('lead_group_owner').options[document.getElementById('lead_group_owner').options.selectedIndex].value;
+	      	{/literal}
+		        var urlstring ="module=Users&action=updateLeadDBStatus&return_module={$MODULE}"+tplstart+url+"&viewname="+viewid+"&idlist="+idstring+searchurl;
+        	{literal}
+    	}
+	}
+	new Ajax.Request(
+                'index.php',
+                {queue: {position: 'end', scope: 'command'},
+                        method: 'post',
+                        postBody: urlstring,
+                        onComplete: function(response) {
+                                $("status").style.display="none";
+                                result = response.responseText.split('&#&#&#');
+                                
+								$("ListViewContents").innerHTML= result[2];
+								/*TECHNOKRAFTS*/
+								{/literal}
+								var mod = '{$MODULE}';
+								{literal}
+								if(mod == 'Leads' || mod == 'Accounts')
+								{
+									insertHtml('ListViewContents');
+								}
+                                /*TECHNOKRAFTS*/
+                                if(result[1] != '')
+                                        alert(result[1]);
+				$('basicsearchcolumns').innerHTML = '';
+                        }
+                }
+        );
+	
+}
+</script>
+{/literal}
