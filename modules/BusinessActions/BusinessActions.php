@@ -9,6 +9,9 @@
  ************************************************************************************/
 require_once 'data/CRMEntity.php';
 require_once 'data/Tracker.php';
+include_once 'vtlib/Vtiger/Utils/StringTemplate.php';
+include_once 'vtlib/Vtiger/LinkData.php';
+
 
 class BusinessActions extends CRMEntity {
 	public $db;
@@ -21,6 +24,7 @@ class BusinessActions extends CRMEntity {
 	/** Indicator if this is a custom module or standard module */
 	public $IsCustomModule = true;
 	public $HasDirectImageField = false;
+	const IGNORE_MODULE = -1;
 	/**
 	 * Mandatory table for supporting custom fields.
 	 */
@@ -144,6 +148,128 @@ class BusinessActions extends CRMEntity {
 		} elseif ($event_type == 'module.postupdate') {
 			// TODO Handle actions after this module is updated.
 		}
+	}
+
+	public static function getAllByType($tabid, $type = false, $parameters = false, $userid = null) {
+		global $adb, $current_user, $currentModule;
+		// self::__initSchema();
+
+		$multitype = false;
+		$orderby = ' order by elementtype_action,sequence'; //MSL
+		if ($type) {
+			// Multiple link type selection?
+			if (is_array($type)) {
+				$multitype = true;
+				if ($tabid === self::IGNORE_MODULE) {
+					$sql = 'SELECT * FROM vtiger_businessactions WHERE elementtype_action IN ('.
+						Vtiger_Utils::implodestr('?', count($type), ',') .') ';
+					$params = $type;
+					$permittedTabIdList = getPermittedModuleIdList();
+					if (count($permittedTabIdList) > 0 && $current_user->is_admin !== 'on') {
+						$sql .= ' and tabid IN ('.
+							Vtiger_Utils::implodestr('?', count($permittedTabIdList), ',').')';
+						$params[] = $permittedTabIdList;
+					}
+					if (!empty($currentModule)) {
+						$sql .= ' and ((onlyonmymodule and module_list=?) or !onlyonmymodule) ';
+						$params[] = getTabid($currentModule);
+					}
+					$result = $adb->pquery($sql . $orderby, array($adb->flatten_array($params)));
+				} else {
+					$result = $adb->pquery(
+						'SELECT * FROM vtiger_businessactions WHERE module_list=? AND elementtype_action IN ('.
+						Vtiger_Utils::implodestr('?', count($type), ',') .')' . $orderby,
+						array($tabid, $adb->flatten_array($type))
+					);
+				}
+			} else {
+				// Single link type selection
+				if ($tabid === self::IGNORE_MODULE) {
+					$result = $adb->pquery('SELECT * FROM vtiger_businessactions WHERE elementtype_action=?' . $orderby, array($type));
+				} else {
+					echo "string";
+					$result = $adb->pquery('SELECT * FROM vtiger_businessactions WHERE module_list=? AND elementtype_action=?' . $orderby, array($tabid, $type));
+				}
+			}
+		} else {
+			$result = $adb->pquery('SELECT * FROM vtiger_businessactions WHERE module_list=?' . $orderby, array($tabid));
+		}
+
+		//Below to implement search by user, role and group 
+		//PS: here is implemented (more or less) the logic. 
+		$SET1 = array();
+		$SET2 = array();
+
+		$multitype = false;
+		if ($userid == null) {
+			$bauserid = $current_user->id;
+		} else {
+			$bauserid = $userid;
+		}
+
+		$join = ' FROM vtiger_businessactions INNER JOIN vtiger_crmentity ON vtiger_crmentity.crmid = vtiger_businessactions.businessactionsid';
+
+		$select = 'select *'.$join;
+
+		$where_active = ' where vtiger_crmentity.deleted=0 and active = 1 and module_list like "%'.$moduleName.'%" ';
+
+		$where_inactive = ' where vtiger_crmentity.deleted=0 and active=0 and module_list like"%'.$moduleName.'%"';
+
+		$userrole = $adb->convert2sql(' inner join vtiger_user2role on vtiger_user2role.userid=?', array($bauserid));
+
+		$sql_active = $select.$userrole.$where_active." and acrole like concat('%', vtiger_user2role.roleid, '%')";
+
+		$slq_inactive = $select.$userrole.$where_inactive." and acrole like concat('%', vtiger_user2role.roleid, '%')";
+		$result_active = $adb->query($sql_active);
+
+		$result_active_array = $adb->fetch_array($result_active);
+		if ($adb->num_rows($result_active)) {
+			array_push($SET1, $adb->fetch_array($result_active));
+		}
+
+		$result_inactive = $adb->query($slq_inactive);
+		if ($adb->num_rows($result_inactive)) {
+			array_push($SET2, $adb->fetch_array($result_inactive));
+		}
+		$user = $adb->convert2sql(' and vtiger_crmentity.smownerid=?', array($bauserid));
+		$sql_active=$select.$where_active.$user;
+		$result_active = $adb->query($sql_active);
+
+		$sql_inactive=$select.$where_inactive.$user;
+		$result_inactive = $adb->query($sql_inactive);
+
+		if ($adb->num_rows($result_active)) {
+			array_push($SET1, $adb->fetch_array($result_active));
+		}
+
+		$result_inactive = $adb->query($slq_inactive);
+		if ($adb->num_rows($result_inactive)) {
+			array_push($SET2, $adb->fetch_array($result_inactive));
+		}
+		require_once 'include/utils/GetUserGroups.php';
+		$UserGroups = new GetUserGroups();
+		$UserGroups->getAllUserGroups($bauserid);
+		if (count($UserGroups->user_groups)>0) {
+			$groups=implode(',', $UserGroups->user_groups);
+			$group = ' and vtiger_crmentity.smownerid in ( select userid from vtiger_users2group where groupid=? )';
+
+			$sql_active = $select.$where_active.$group;
+			$result_active = $adb->pquery($sql_active, array($groups));
+
+			$sql_inactive = $select.$where_inactive.$group;
+			$result_inactive = $adb->pquery($sql_inactive, array($groups));
+
+			if ($adb->num_rows($result_active)) {
+				array_push($SET1, $adb->fetch_array($result_active));
+			}
+
+			$result_inactive = $adb->query($slq_inactive);
+			if ($adb->num_rows($result_inactive)) {
+				array_push($SET2, $adb->fetch_array($result_inactive));
+			}
+		}
+		$result = array_diff($SET1, $SET2);
+		return $result;
 	}
 
 	/**
